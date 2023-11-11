@@ -74,5 +74,3 @@ Contributions are welcome! Feel free to open issues, submit pull requests, or pr
 ## Author
 
   Elsayed Elmandoh : [Linkedin](https://www.linkedin.com/in/elsayed-elmandoh-77544428a/).
-
-Feel free to customize this README according to your specific project details.
