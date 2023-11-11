@@ -65,7 +65,7 @@ This project aims to create a set of Streamlit dashboards for visualizing and an
 4. Run the Streamlit application using `streamlit run main.py`.
 
 ## Hosting
-  [Link]()
+  [Link](https://dashboardelectropi-hewqlystrcemmjadhtb2hw.streamlit.app/)
   
 ## Contributing
 
