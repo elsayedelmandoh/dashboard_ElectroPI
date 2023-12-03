@@ -5,9 +5,8 @@
 2. [Tasks](#tasks)
 3. [Tools and Technologies](#tools-and-technologies)
 4. [Setup Instructions](#setup-instructions)
-5. [Hosting](#hosting)
-6. [Contributing](#contributing)
-7. [Author](#author)
+5. [Contributing](#contributing)
+6. [Author](#author)
 
 
 ## Project Overview
@@ -64,9 +63,6 @@ This project aims to create a set of Streamlit dashboards for visualizing and an
 3. Configure the database connection in the code.
 4. Run the Streamlit application using `streamlit run main.py`.
 
-## Hosting
-  [Link](https://dashboardelectropi-hewqlystrcemmjadhtb2hw.streamlit.app/)
-  
 ## Contributing
 
 Contributions are welcome! Feel free to open issues, submit pull requests, or provide feedback.
