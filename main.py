@@ -10,6 +10,7 @@ def get_data(query):
         user="root",
         password="seven",
         database="demo_database",
+        auth_plugin='mysql_native_password'
     )
     data = pd.read_sql_query(query, connection)
     connection.close()
@@ -27,12 +28,12 @@ def users_registration_subscriptions():
     st.header(":bar_chart: User Registration and Subscription Analysis")
     query_users = "SELECT user_id, registration_date, subscribed, subscription_date FROM users;"
     data_users = get_data(query_users)
+    data_users['registration_date'] = pd.to_datetime(data_users['registration_date'])
     data_users = data_users[(data_users['registration_date'] >= start_date) & (data_users['registration_date'] <= end_date)]
-
+    
     if data_users.empty:
         st.warning("No data available for the selected date range. Unable to visualize.")
     else:
-        data_users['registration_date'] = pd.to_datetime(data_users['registration_date'])
         data_users['subscription_date'] = pd.to_datetime(data_users['subscription_date'])
 
         data_users['registration_day'] = data_users['registration_date'].dt.day
@@ -53,82 +54,33 @@ def users_registration_subscriptions():
         yearly_registered = data_users.groupby('registration_year').size()
         yearly_subscribed = data_users[data_users['subscribed'] == 1].groupby('subscription_year').size()
 
+        data_dict = {'Daily': {'Registered': daily_registered, 'Subscribed': daily_subscribed},
+                     'Weekly': {'Registered': weekly_registered, 'Subscribed': weekly_subscribed},
+                     'Monthly': {'Registered': monthly_registered, 'Subscribed': monthly_subscribed},
+                     'Yearly': {'Registered': yearly_registered, 'Subscribed': yearly_subscribed}}
+        
+        selected_interval = st.radio("Select Time Interval", list(data_dict.keys()))
+        selected_data = data_dict[selected_interval]
+        fig_combined = px.line(title=f'{selected_interval.capitalize()} User Registration and Subscription Statistics')
 
-        st.subheader("Daily User Registration and Subscription")
-        col1, col2 = st.columns(2)
-
-        fig_registered = px.line(daily_registered, 
-                                x=daily_registered.index, 
-                                y=daily_registered.values, 
-                                labels={'x': 'Days', 'y': 'Registered Users'}, 
-                                title='Daily Registered Users')
-        col1.plotly_chart(fig_registered,
-                        use_container_width=True, )
-
-        fig_subscribed = px.line(daily_subscribed, 
-                                x=daily_subscribed.index, 
-                                y=daily_subscribed.values, 
-                                labels={'x': 'Days', 'y': 'Subscribed Users'}, 
-                                title='Daily Subscribed Users')
-        col2.plotly_chart(fig_subscribed, 
-                        use_container_width=True)
-
-        st.subheader("Weekly User Registration and Subscription")
-        col3, col4 = st.columns(2)
-        fig_weekly_registered = px.line(weekly_registered, 
-                                        x=weekly_registered.index, 
-                                        y=weekly_registered.values, 
-                                        labels={'x': 'Week', 'y': 'Registered Users'}, 
-                                        title='Weekly Registered Users')
-        col3.plotly_chart(fig_weekly_registered, 
-                        use_container_width=True)
-
-
-        fig_weekly_subscribed = px.line(weekly_subscribed, 
-                                        x=weekly_subscribed.index, 
-                                        y=weekly_subscribed.values, 
-                                        labels={'x': 'Week', 'y': 'Subscribed Users'}, 
-                                        title='Weekly Subscribed Users')
-        col4.plotly_chart(fig_weekly_subscribed, 
-                        use_container_width=True)
-
-        st.subheader("Monthly User Registration and Subscription")
-        col5, col6 = st.columns(2)
-        fig_monthly_registered = px.bar(monthly_registered, 
-                                        x=monthly_registered.index.astype(int), 
-                                        y=monthly_registered.values, 
-                                        labels={'x': 'Month', 'y': 'Registered Users'}, 
-                                        title='Monthly Registered Users').update_xaxes(type='category')
-        col5.plotly_chart(fig_monthly_registered, 
-                    use_container_width=True)
-
-        fig_monthly_subscribed = px.bar(monthly_subscribed, 
-                                        x=monthly_subscribed.index.astype(int), 
-                                        y=monthly_subscribed.values, 
-                                        labels={'x': 'Month', 'y': 'Subscribed Users'}, 
-                                        title='Monthly Subscribed Users').update_xaxes(type='category')
-        col6.plotly_chart(fig_monthly_subscribed, 
-                    use_container_width=True)
-
-        st.subheader("Yearly User Registration and Subscription")
-        col7, col8 = st.columns(2)
-        fig_yearly_registered = px.bar(yearly_registered, 
-                                        x=yearly_registered.index.astype(int), 
-                                        y=yearly_registered.values, 
-                                        labels={'x': 'Year', 'y': 'Registered Users'}, 
-                                        title='Yearly Registered Users').update_xaxes(type='category')
-        col7.plotly_chart(fig_yearly_registered, 
-                    use_container_width=True)
-
-        fig_yearly_subscribed = px.bar(yearly_subscribed, 
-                                        x=yearly_subscribed.index.astype(int), 
-                                        y=yearly_subscribed.values, 
-                                        labels={'x': 'Year', 'y': 'Subscribed Users'}, 
-                                        title='Yearly Subscribed Users').update_xaxes(type='category')
-        col8.plotly_chart(fig_yearly_subscribed, 
-                    use_container_width=True)
-
-
+        fig_combined.add_scatter(x=selected_data['Registered'].index, 
+                                 y=selected_data['Registered'].values, 
+                                 mode='lines', 
+                                 name=f'{selected_interval} Registered Users',
+                                 text=[f'Registered: {val}' for val in selected_data['Registered'].values],
+                                 line=dict(color='blue', width=2),
+                                 hoverinfo='text+name',
+                                 )
+        fig_combined.add_scatter(x=selected_data['Subscribed'].index, 
+                                 y=selected_data['Subscribed'].values, 
+                                 mode='lines', 
+                                 name=f'{selected_interval} Subscribed Users',
+                                 text=[f'Subscribed: {val}' for val in selected_data['Subscribed'].values],
+                                 line=dict(color='red', width=2),
+                                 hoverinfo='text+name',
+                                 )
+        fig_combined.update_layout(xaxis_title='Time', yaxis_title='Number of Users')
+        st.plotly_chart(fig_combined, use_container_width=True)
 
 
 
@@ -138,14 +90,13 @@ def subscribed_users_per_bundl():
     st.header(":bar_chart: Bundle Subscriptions Analysis")
     query_bundle = "SELECT bundle_id, if_used, creation_date FROM bundles;"
     data_bundle = get_data(query_bundle)
-    data_bundle['creation_date'] = pd.to_datetime(data_bundle['creation_date'].dt.date)
+    data_bundle['creation_date'] = pd.to_datetime(data_bundle['creation_date'])
     data_bundle = data_bundle[(data_bundle['creation_date'] >= start_date) & (data_bundle['creation_date'] <= end_date)]
 
     if data_bundle.empty:
         st.warning("No data available for the selected date range. Unable to visualize.")
     else:
         data_bundle['if_used'].value_counts()
-        data_bundle['creation_date'] = pd.to_datetime(data_bundle['creation_date'])
         data_bundle['creation_day'] = data_bundle['creation_date'].dt.day
         data_bundle['creation_week'] = data_bundle['creation_date'].dt.weekday
         data_bundle['creation_month'] = data_bundle['creation_date'].dt.month
@@ -156,132 +107,76 @@ def subscribed_users_per_bundl():
         monthly_subscribed_bundle = data_bundle[data_bundle['if_used'] == 1].groupby('creation_month').size()
         yearly_subscribed_bundle = data_bundle[data_bundle['if_used'] == 1].groupby('creation_year').size()
 
+        data_dict_bundle = {'Daily': daily_subscribed_bundle,
+                            'Weekly': weekly_subscribed_bundle,
+                            'Monthly': monthly_subscribed_bundle,
+                            'Yearly': yearly_subscribed_bundle}
 
-        st.subheader("Daily and Weekly Subscribed Users for Each Bundle")
-        col9, col10 = st.columns(2)
+        selected_interval_bundle = st.radio("Select Time Interval", list(data_dict_bundle.keys()))
+        selected_data_bundle = data_dict_bundle[selected_interval_bundle]
 
-        fig_daily_subscribed_bundle = px.bar(x=daily_subscribed_bundle.index.astype(int).tolist(), 
-                                            y=daily_subscribed_bundle.values, 
-                                            labels={'x': 'creation_day', 'y': 'Subscribed Users'}, 
-                                            title='Daily Subscribed Users for Each Bundle').update_xaxes(type='category')
-        col9.plotly_chart(fig_daily_subscribed_bundle, 
-                    use_container_width=True)
-
-        fig_weekly_subscribed_bundle = px.bar(x=weekly_subscribed_bundle.index.astype(int), 
-                                            y=weekly_subscribed_bundle.values, 
-                                            labels={'x': 'creation_Week', 'y': 'Subscribed Users'}, 
-                                            title='Weekly Subscribed Users for Each Bundle').update_xaxes(type='category')
-        col10.plotly_chart(fig_weekly_subscribed_bundle, 
-                        use_container_width=True)
-
-        st.subheader("Monthly and Yearly Subscribed Users for Each Bundle")
-        col11, col12 = st.columns(2)
-        fig_monthly_subscribed_bundle = px.bar(x=monthly_subscribed_bundle.index.astype(int), 
-                                            y=monthly_subscribed_bundle.values,
-                                            labels={'x':'creation_month', 'y': 'Subscribed Users'},
-                                            title='Monthly Subscribed Users for Each Bundle').update_xaxes(type='category')
-        col11.plotly_chart(fig_monthly_subscribed_bundle, 
-                        use_container_width=True)
-
-        fig_yearly_subscribed_bundle = px.bar(x=yearly_subscribed_bundle.index.astype(int), 
-                                            y=yearly_subscribed_bundle.values,
-                                            labels={'x': 'creation_year', 'y': 'Subscribed Users'},
-                                            title='Yearly Subscribed Users for Each Bundle').update_xaxes(type='category')
-        col12.plotly_chart(fig_yearly_subscribed_bundle, 
-                        use_container_width=True)
-
-
+        fig_subscribed_bundle = px.bar(x=selected_data_bundle.index.astype(int).tolist(), 
+                                y=selected_data_bundle.values, 
+                                labels={'x': selected_interval_bundle, 'y': 'Subscribed Users'}, 
+                                title=f'{selected_interval_bundle.capitalize()} Bundle Subscription Statistics'
+                                )
+        
+        fig_subscribed_bundle.update_layout(xaxis_title='Time', yaxis_title='Number of Users')
+        st.plotly_chart(fig_subscribed_bundle, use_container_width=True)
 
 
 
 # Task 3: Build a dashboard to `show all users in the 10k AI initiative`, the `number of their completed courses`, and the `information of the last completed course` like the `date of completion`, `degree` … etc
 def show_10k_AI_initiative():
+    st.header(":clipboard: Users in the 10k AI Initiative Analysis")
 
-    # Show all users in the 10k AI initiative
-    query_10k_ai_query = "SELECT user_id, registration_date, 10k_AI_initiative FROM users;"
-    query_10k_ai_users = get_data(query_10k_ai_query)
-    query_10k_ai_users['registration_date'] = pd.to_datetime(query_10k_ai_users['registration_date'])
-    query_10k_ai_users = query_10k_ai_users[(query_10k_ai_users['registration_date'] >= start_date) & (query_10k_ai_users['registration_date'] <= end_date)]
-    subscribed_users = query_10k_ai_users['10k_AI_initiative'].value_counts()
-
-    query_completed_courses_count = """
-        SELECT u.user_id, COUNT(u.course_id) as num_completed_courses, MAX(u.completion_date) as completion_date
-        FROM user_completed_courses u
-        JOIN users ON u.user_id = users.user_id
-        WHERE users.10k_AI_initiative = 1
-        GROUP BY u.user_id;
+    # Assuming you have a function named get_data for fetching data
+    query_users_courses = """
+    SELECT 
+        u.user_id,
+        u.study_degree,
+        u.`10k_AI_initiative`,
+        COUNT(DISTINCT c.course_id) as num_completed_courses,
+        MAX(c.course_degree) as max_course_degree,
+        MAX(crs.title) as last_completed_course_title,
+        MAX(c.completion_date) as last_completion_date
+    FROM users u
+    LEFT JOIN user_completed_courses c ON u.user_id = c.user_id
+    LEFT JOIN courses crs ON c.course_id = crs.course_id
+    WHERE u.`10k_AI_initiative` = 1
+    GROUP BY u.user_id, u.study_degree, u.`10k_AI_initiative`
+    ORDER BY num_completed_courses DESC;
     """
-    completed_courses_count = get_data(query_completed_courses_count)
-    completed_courses_count['completion_date'] = pd.to_datetime(completed_courses_count['completion_date'].dt.date)
-    completed_courses_count = completed_courses_count[(completed_courses_count['completion_date'] >= start_date) & (completed_courses_count['completion_date'] <= end_date)]
+    data_users_courses = get_data(query_users_courses)
+    data_users_courses['max_course_degree'] = data_users_courses['max_course_degree'].fillna(0)
+    data_users_courses['max_course_degree'] = data_users_courses['max_course_degree'].astype(int)
+    data_users_courses['last_completion_date'] = pd.to_datetime(data_users_courses['last_completion_date'])
+    data_users_courses = data_users_courses[(data_users_courses['last_completion_date'] >= start_date) & (data_users_courses['last_completion_date'] <= end_date)]
+    
+    if data_users_courses.empty:
+        st.warning("No data available for users in the 10k AI Initiative. Unable to visualize.")
+    else:        
+        sort_order = st.radio("Sort Order", ["Ascending", "Descending"], index=0)
+        if sort_order == "Ascending":
+            data_users_courses = data_users_courses.sort_values(by='num_completed_courses', ascending=True)
+        else:
+            data_users_courses = data_users_courses.sort_values(by='num_completed_courses', ascending=False)
+        st.table(data_users_courses[['user_id', 'study_degree', 'num_completed_courses', 'max_course_degree', 'last_completed_course_title', 'last_completion_date']])
 
-    fig_histogram = px.histogram(
-        completed_courses_count,
-        x='num_completed_courses',
-        nbins=30, 
-        labels={'num_completed_courses': 'Number of Completed Courses'},
-        title='Number of Completed Courses for 10k AI Users'
-    )
-
-
-    query_completed_courses = """
-    SELECT u.user_id, c.course_id, c.title, u.course_degree, u.completion_date
-    FROM user_completed_courses u
-    JOIN Courses c ON u.course_id = c.course_id
-    WHERE u.user_id IN (SELECT user_id FROM users WHERE 10k_AI_initiative = 1);
-    """
-    completed_courses_info = get_data(query_completed_courses)
-    completed_courses_info['completion_date'] = pd.to_datetime(completed_courses_info['completion_date'].dt.date)
-    completed_courses_info = completed_courses_info[(completed_courses_info['completion_date'] >= start_date) & (completed_courses_info['completion_date'] <= end_date)]
-
-    st.header(":bar_chart: 10k AI Initiative Analysis")
-    st.subheader("Subscribed Users for 10k_AI_initiative")
-    if subscribed_users.empty:
-        st.warning("No data available for the selected date range. Unable to visualize.")
-    else:
-        st.bar_chart(subscribed_users, 
-                    use_container_width=True)
-
-    st.subheader("Number of Completed Courses and Info Courses for 10k AI Users")
-    if completed_courses_count.empty:
-        st.warning("No data available for the selected date range. Unable to visualize.")
-    else:
-        col13, col14 = st.columns(2)
-
-        col13.plotly_chart(fig_histogram, 
-                        use_container_width=True)
-        col14.empty()
-        
-    if completed_courses_info.empty:
-        st.warning("No data available for the selected date range. Unable to info.")
-    else:
-        user_id_input = st.text_input("Enter User ID:")
-        user_id_input = int(user_id_input) if user_id_input.isdigit() else None
-
-        if user_id_input is not None:
-            user_completed_courses = completed_courses_info[completed_courses_info['user_id'] == user_id_input]
-
-            if not user_completed_courses.empty:
-                last_completed_course = user_completed_courses.sort_values(by='completion_date').iloc[-1]
-
-                st.subheader(f"Last Completed Course Information for User {user_id_input}")
-                st.write(f"Course ID: {last_completed_course['course_id']}")
-                st.write(f"Course Title: {last_completed_course['title']}")
-                st.write(f"Degree: {last_completed_course['course_degree']}")
-                st.write(f"Completion Date: {last_completed_course['completion_date']}")
-            else:
-                st.warning(f"No completed courses found for User {user_id_input}")
 
 
 # Task 4: Build a dashboard to `visualize all users`, the `number of their currently learning courses`, and the `number of completed courses` during this `week`, `month`, and `year`.
 def users_learning_completed_courses():
     query_all_users = "SELECT user_id, registration_date FROM users;"
     data_all_users = get_data(query_all_users)
+    
     data_all_users['registration_date'] = pd.to_datetime(data_all_users['registration_date'])
-    data_all_users = data_all_users[(data_all_users['registration_date'] >= start_date) & (data_all_users['registration_date'] <= end_date)]
+    data_all_users = data_all_users[
+        (data_all_users['registration_date'] >= start_date) & (data_all_users['registration_date'] <= end_date)
+    ]
 
     query_currently_learning_count = """
-    SELECT u.user_id, COUNT(DISTINCT c.course_id) as num_currently_learning_courses
+    SELECT u.user_id, COUNT(DISTINCT c.course_id) as num_currently_courses
     FROM users u
     LEFT JOIN capstones c ON u.user_id = c.user_id
     WHERE u.user_id IN (SELECT DISTINCT user_id FROM capstones WHERE `lock` = 0)
@@ -290,78 +185,33 @@ def users_learning_completed_courses():
     currently_learning_count = get_data(query_currently_learning_count)
 
     query_completed_courses_count_all = """
-        SELECT u.user_id, COUNT(u.course_id) as num_completed_courses
-        FROM user_completed_courses u
-        GROUP BY u.user_id;
+    SELECT u.user_id, COUNT(u.course_id) as num_completed_courses
+    FROM user_completed_courses u
+    GROUP BY u.user_id;
     """
     completed_courses_count_all = get_data(query_completed_courses_count_all)
 
+    merged_data = pd.merge(data_all_users, currently_learning_count, on="user_id", how="left")
+    merged_data = pd.merge(merged_data, completed_courses_count_all, on="user_id", how="left")
+    merged_data['num_currently_courses'] = merged_data['num_currently_courses'].fillna(0)
+    merged_data['num_currently_courses'] = merged_data['num_currently_courses'].astype(int)
+    merged_data['num_completed_courses'] = merged_data['num_completed_courses'].fillna(0)
+    merged_data['num_completed_courses'] = merged_data['num_completed_courses'].astype(int)
 
-    st.header(":bar_chart: All Users Analysis")
-    if data_all_users.empty:
+    st.header(":clipboard: Users Courses Analysis")
+    
+    if merged_data.empty:
         st.warning("No data available for the selected date range. Unable to visualize.")
     else:
-        data_all_users = data_all_users.merge(currently_learning_count, on='user_id', how='left')
-        data_all_users = data_all_users.merge(completed_courses_count_all, on='user_id', how='left')
+        sort_order = st.radio("Sort Order", ["Ascending", "Descending"], index=0)
+        sort_column = st.radio("Sort Column", ["num_currently_courses", "num_completed_courses"], index=0)
+        if sort_order == "Ascending":
+            merged_data = merged_data.sort_values(by=sort_column, ascending=True)
+        else:
+            merged_data = merged_data.sort_values(by=sort_column, ascending=False)
 
-        data_all_users['registration_week'] = data_all_users['registration_date'].dt.weekday
-        data_all_users['registration_month'] = data_all_users['registration_date'].dt.month
-        data_all_users['registration_year'] = data_all_users['registration_date'].dt.year
+        st.table(merged_data[['user_id', 'num_currently_courses', 'num_completed_courses']])
 
-        weekly_registered_all = data_all_users.groupby('registration_week').size()
-        monthly_registered_all = data_all_users.groupby('registration_month').size()
-        yearly_registered_all = data_all_users.groupby('registration_year').size()
-
-
-        st.subheader("Weekly, Monthly and Yearly User Registration")
-        col15, col16 = st.columns(2)
-        fig_weekly_registered_all = px.line(weekly_registered_all, 
-                                            x=weekly_registered_all.index, 
-                                            y=weekly_registered_all.values, 
-                                            labels={'x': 'Week', 'y': 'Registered Users'}, 
-                                            title='Weekly Registered Users (All Users)')
-        col15.plotly_chart(fig_weekly_registered_all, 
-                        use_container_width=True)
-
-        fig_monthly_registered_all = px.bar(monthly_registered_all, 
-                                            x=monthly_registered_all.index.astype(int), 
-                                            y=monthly_registered_all.values, 
-                                            labels={'x': 'Month', 'y': 'Registered Users'}, 
-                                            title='Monthly Registered Users (All Users)').update_xaxes(type='category')
-        col16.plotly_chart(fig_monthly_registered_all, 
-                    use_container_width=True)
-
-        col17, col18 = st.columns(2)
-        fig_yearly_registered_all = px.bar(yearly_registered_all, 
-                                            x=yearly_registered_all.index.astype(int), 
-                                            y=yearly_registered_all.values, 
-                                            labels={'x': 'Year', 'y': 'Registered Users'}, 
-                                            title='Yearly Registered Users (All Users)').update_xaxes(type='category')
-        col17.plotly_chart(fig_yearly_registered_all, 
-                    use_container_width=True)
-        col18.empty()
-
-    st.subheader("Number of Currently Learning")
-    if currently_learning_count.empty:
-        st.warning("No data available for the selected date range. Unable to visualize.")
-    else:
-        fig_currently_learning = px.histogram(data_all_users, 
-                                            x='num_currently_learning_courses',
-                                            labels={'x': 'Number of Currently Learning Courses'},
-                                            title='Number of Currently Learning Courses (All Users)')
-        st.plotly_chart(fig_currently_learning, 
-                        use_container_width=True)
-
-    st.subheader("Number of Completed Courses")
-    if completed_courses_count_all.empty:
-        st.warning("No data available for the selected date range. Unable to visualize.")
-    else:
-        fig_completed_courses_all = px.histogram(data_all_users, 
-                                                x='num_completed_courses',
-                                                labels={'x': 'Number of Completed Courses'},
-                                                title='Number of Completed Courses (All Users)')
-        st.plotly_chart(fig_completed_courses_all, 
-                        use_container_width=True)
 
 
 
@@ -412,45 +262,34 @@ def search_user_info():
             st.warning(f"No information found for User {user_id_search}")
             
 
-# Task 6: Build a dashboard to `show each admin` and the `number of capstones evaluated` for `today`, this `week`, and this `month`.
+# Task 6: Build a dashboard to show each admin and the number of capstones evaluated for today, this week, and this month.
 def admin_capstone_evaluation():
     st.header(":bar_chart: Admin Capstone Evaluation Analysis")
     query_admin_evaluation = f"""
-        SELECT admin_id, COUNT(eval_history_id) as num_evaluations, MAX(evaluation_date) as last_evaluation_date
+        SELECT 
+            admin_id, 
+            COUNT(eval_history_id) as num_evaluations, 
+            MAX(evaluation_date) as last_evaluation_date
         FROM capstone_evaluation_history
         WHERE evaluation_date BETWEEN '{start_date}' AND '{end_date}'
         GROUP BY admin_id;
     """
     admin_evaluation_data = get_data(query_admin_evaluation)
 
-
     if admin_evaluation_data.empty:
         st.warning("No data available for the selected date range. Unable to visualize.")
     else:
         admin_evaluation_data['last_evaluation_date'] = pd.to_datetime(admin_evaluation_data['last_evaluation_date'])
         
-        st.subheader("Admin Capstone Evaluation Counts")
-        col23, col24 = st.columns(2)
+        sort_order = st.radio("Sort Order", ["Ascending", "Descending"], index=0)
 
-        fig_admin_evaluations = px.bar(
-            admin_evaluation_data,
-            x='admin_id',
-            y='num_evaluations',
-            labels={'x': 'Admin ID', 'y': 'Number of Evaluations'},
-            title='Admin Capstone Evaluation Counts'
-        )
-        col23.plotly_chart(fig_admin_evaluations, use_container_width=True)
+        if sort_order == "Ascending":
+            admin_evaluation_data = admin_evaluation_data.sort_values(by='num_evaluations', ascending=True)
+        else:
+            admin_evaluation_data = admin_evaluation_data.sort_values(by='num_evaluations', ascending=False)
 
-        fig_last_evaluation_date = px.bar(
-            admin_evaluation_data,
-            x='admin_id',
-            y='last_evaluation_date',
-            labels={'x': 'Admin ID', 'y': 'Last Evaluation Date'},
-            title='Admin Last Evaluation Date'
-        )
-        fig_last_evaluation_date.update_layout(yaxis=dict(type='category'))
-        col24.plotly_chart(fig_last_evaluation_date, use_container_width=True)
-
+        st.table(admin_evaluation_data)
+        
 
 # Task 7: Build a dashboard to `show each user’s capstone` and the `evaluation history` of this capstone.
 def user_capstone_evaluation_history():
@@ -477,6 +316,7 @@ def user_capstone_evaluation_history():
                                how='inner', 
                                on=['user_id', 'course_id', 'chapter_id', 'lesson_id'])
         st.table(capstone_info_evaluation)
+        
         
 # Task 8: Build a dashboard to `show all coupons` and the `number of actual users who used these coupons`.
 def coupons_users_count():
@@ -520,6 +360,7 @@ def users_grouped_by_age_degree():
                      title='Users Grouped by Age and Study Degree', 
                     color_discrete_sequence=['#FF5733', '#33FF57']) 
         st.plotly_chart(fig, use_container_width=True)
+ 
  
 # Task 10: Build a dashboard to `show all users` and their `employment grant status` and `history`, 
 # in addition to `all employment grant status with the number of users in this status`.
